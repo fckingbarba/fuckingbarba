@@ -15,6 +15,7 @@ import {
 import { Fechar, Lupa, SetaDireita, SetaEsquerda, Tocar } from "@/components/icones"
 import { duracaoCurta, VideoDoProduto } from "@/components/produto/video"
 import type { VideoDaPdp } from "@/conteudo/produto"
+import { useOfertaNaPdp } from "@/components/oferta/na-pdp"
 
 /**
  * A GALERIA DA DOBRA
@@ -67,7 +68,7 @@ const ARRASTO_MINIMO = 50
 export function Galeria({
   itens,
   alvo,
-  desconto,
+  desconto: daVitrine,
   esgotado = false,
   noPe = null,
 }: {
@@ -87,6 +88,9 @@ export function Galeria({
    */
   noPe?: ReactNode
 }) {
+  // Quem veio pelo link de uma oferta oculta vê o desconto dela (entrega 0240).
+  const oferta = useOfertaNaPdp()
+  const desconto = oferta ? oferta.desconto : daVitrine
   /** A foto à vista no palco (posição em `itens`). Quem manda nela é a rolagem do trilho. */
   const [atual, setAtual] = useState(0)
   const trilho = useRef<HTMLDivElement>(null)

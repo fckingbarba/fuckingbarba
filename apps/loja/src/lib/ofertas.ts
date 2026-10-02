@@ -72,3 +72,71 @@ export function quandoAcaba(iso: string): string {
   const d = new Date(new Date(iso).getTime() - BRASILIA_MS)
   return `${DIAS[d.getUTCDay()]}, ${dois(d.getUTCDate())}/${dois(d.getUTCMonth() + 1)}, às ${dois(d.getUTCHours())}:${dois(d.getUTCMinutes())}`
 }
+
+/* ── a oferta na página do produto (entrega 0240) ─────────────────────── */
+
+/**
+ * A MARCA NO NAVEGADOR de quem abriu o link de uma oferta: o endereço dela,
+ * num cookie que o JavaScript lê (não é segredo — o link é a chave, e a
+ * marca só repete o link). Com ela, a página do produto pergunta a oferta e
+ * mostra o preço dela (`ProvedorDaOfertaNaPdp`); sem ela, não pergunta
+ * nada: a página do produto de todo mundo não ganha uma ida a mais. Vale
+ * até o fim da oferta (o `max-age`), e o link de outra oferta troca.
+ */
+export const COOKIE_DA_OFERTA = "fb_oferta"
+
+/** O endereço da marca, de um `document.cookie`, ou `null`. */
+export function enderecoDoCookie(cookies: string): string | null {
+  for (const parte of cookies.split(";")) {
+    const [nome, ...resto] = parte.trim().split("=")
+    if (nome !== COOKIE_DA_OFERTA) continue
+    const valor = decodeURIComponent(resto.join("="))
+    return ehEnderecoDeOferta(valor) ? valor : null
+  }
+  return null
+}
+
+/** O `document.cookie =` da marca: até o fim da oferta, no site inteiro. */
+export function cookieDaOferta(
+  endereco: string,
+  terminaEm: string,
+  agora: number,
+  seguro: boolean
+) {
+  const segundos = Math.max(0, Math.floor((new Date(terminaEm).getTime() - agora) / 1000))
+  return `${COOKIE_DA_OFERTA}=${encodeURIComponent(endereco)}; path=/; max-age=${segundos}; samesite=lax${seguro ? "; secure" : ""}`
+}
+
+export type Restante = {
+  dias: number
+  horas: number
+  minutos: number
+  segundos: number
+  ms: number
+}
+
+/** Quanto falta até `fim`, em partes inteiras (zero depois do fim). */
+export function restanteAte(fim: number, agora: number): Restante {
+  const ms = Math.max(0, fim - agora)
+  const total = Math.floor(ms / 1000)
+  return {
+    ms,
+    dias: Math.floor(total / 86_400),
+    horas: Math.floor((total % 86_400) / 3600),
+    minutos: Math.floor((total % 3600) / 60),
+    segundos: total % 60,
+  }
+}
+
+/** "2d 14:33:08" · "14:33:08" — o relógio da faixa. */
+export function prazoNoRelogio(r: Restante): string {
+  const hms = [r.horas, r.minutos, r.segundos].map(dois).join(":")
+  return r.dias > 0 ? `${r.dias}d ${hms}` : hms
+}
+
+/** "2d 14h" · "14h 33min" · "33min" — o prazo curto da barra fixa. */
+export function prazoCurto(r: Restante): string {
+  if (r.dias > 0) return `${r.dias}d ${r.horas}h`
+  if (r.horas > 0) return `${r.horas}h ${r.minutos}min`
+  return `${Math.max(1, r.minutos)}min`
+}

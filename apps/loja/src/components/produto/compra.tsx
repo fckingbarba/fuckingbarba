@@ -13,9 +13,11 @@ import {
   Sacola,
   Triangulo,
 } from "@/components/icones"
+import { PrazoDaOferta, useOfertaNaPdp, type OfertaNaPdp } from "@/components/oferta/na-pdp"
 import { AviseMe } from "@/components/produto/avise-me"
 import { EVENTO_SACOLA, useSacola } from "@/components/sacola/contexto"
 import { adicionar, adicionarVarios, type Resultado } from "@/lib/acoes/carrinho"
+import { adicionarDaOferta, adicionarVariosDaOferta } from "@/lib/acoes/oferta"
 import type { CarrinhoVisivel } from "@/lib/carrinho-visivel"
 import { emReais } from "@/lib/formato"
 import type { DegrauDeQuantidade } from "@/lib/medusa"
@@ -69,6 +71,15 @@ import { usePeDaTela } from "@/lib/use-pe-da-tela"
  * só serve pra quem compra agora — o frete, as unidades, o leve junto, o
  * botão e as garantias. Até 26/09 a caixa continuava inteira, com um botão
  * "Esgotado" preto que parecia clicável e não fazia nada.
+ *
+ * A OFERTA OCULTA (entrega 0240): pra quem veio pelo link de uma oferta com
+ * este produto (`useOfertaNaPdp`), a unidade custa o menor entre o "por" e
+ * o preço dela naquela quantidade — o que a lista da oferta cobra —, em todo
+ * lugar: o preço grande, os cartões, a barra fixa e a prévia da sacola. A
+ * linha de baixo do preço compara com a loja ("Na loja: R$ 89,90 · no seu
+ * link: R$ 59,90"), e o botão marca a sacola com a oferta. O "Leve X, pague
+ * Y" sai da conta da tela: a unidade de graça, se o carrinho der, é
+ * surpresa boa — nunca uma promessa que ele não cumpre.
  */
 
 const MAX = 10
@@ -127,6 +138,7 @@ export function Compra({
   // A caixa do avise-me, quando esgotado: é pra ela que a barra fixa leva.
   const caixaDoAviso = useRef<HTMLDivElement>(null)
   const sacola = useSacola()
+  const oferta = useOfertaNaPdp()
 
   // A visita ao produto, uma por produto (a ViewContent da Meta e do TikTok).
   const primeiro = degraus[0]
@@ -185,11 +197,18 @@ export function Compra({
     )
   }
 
-  // O preço de uma unidade que o carrinho vai cobrar nesta quantidade.
-  const unitario = promocao ? unitarioEm(unitarios, unidades, base.porUnidade) : degrau.porUnidade
-  const total = promocao
-    ? emCentavos(unitario * (unidades - gratisEm(unidades, promocao.comprando, promocao.pague)))
+  // O preço de uma unidade que o carrinho vai cobrar nesta quantidade — pra todo mundo.
+  const unitarioDaLoja = promocao
+    ? unitarioEm(unitarios, unidades, base.porUnidade)
+    : degrau.porUnidade
+  const totalDaLoja = promocao
+    ? emCentavos(
+        unitarioDaLoja * (unidades - gratisEm(unidades, promocao.comprando, promocao.pague))
+      )
     : emCentavos(degrau.porUnidade * unidades)
+  // E pra quem veio pelo link da oferta (o quadro lá em cima).
+  const unitario = oferta ? Math.min(oferta.por, degrau.porUnidade) : unitarioDaLoja
+  const total = oferta ? emCentavos(unitario * unidades) : totalDaLoja
   const parcela = total / PARCELAS_SEM_JUROS
   const parcelavel = parcela >= parcelaMinima
 
@@ -260,6 +279,8 @@ export function Compra({
   const riscado = referencia > total ? referencia : null
   // A diferença entre os dois números que já estão na tela — nada além deles.
   const economia = riscado ? riscado - total : 0
+  // Na oferta, a linha de baixo do preço compara com o que a loja cobra de quem não tem o link.
+  const naLoja = oferta && totalDaLoja > total ? totalDaLoja : null
 
   function comprar() {
     setRecado(null)
@@ -269,13 +290,19 @@ export function Compra({
       passar e a segunda falhar — e aí a sacola fica com metade do que a
       pessoa pediu, sem ela saber qual metade.
     */
+    const itens = [
+      { varianteId: base.varianteId, quantidade: unidades },
+      ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
+    ]
+    // Com a oferta, a sacola é marcada antes (`lib/acoes/oferta.ts`): o preço sai o dela.
     const chamar = () =>
-      marcados.length
-        ? adicionarVarios([
-            { varianteId: base.varianteId, quantidade: unidades },
-            ...marcados.map((c) => ({ varianteId: c.varianteId, quantidade: 1 })),
-          ])
-        : adicionar(base.varianteId, unidades)
+      oferta
+        ? marcados.length
+          ? adicionarVariosDaOferta(oferta.endereco, itens)
+          : adicionarDaOferta(oferta.endereco, base.varianteId, unidades)
+        : marcados.length
+          ? adicionarVarios(itens)
+          : adicionar(base.varianteId, unidades)
     /*
       A GAVETA ABRE NO CLIQUE (entrega 0104), com o que esta caixa já
       mostra: a foto, o nome, o preço da unidade no degrau e o total dele.
@@ -369,7 +396,11 @@ export function Compra({
               {emReais(riscado)}
             </span>
           ) : null}
-          {economia >= 0.01 ? (
+          {naLoja ? (
+            <span className="compra__economia" data-na-loja>
+              Na loja: {emReais(naLoja)} · no seu link: {emReais(total)}
+            </span>
+          ) : economia >= 0.01 ? (
             <span className="compra__economia">Economiza {emReais(economia)}</span>
           ) : null}
         </p>
@@ -379,7 +410,7 @@ export function Compra({
           aqui: pausada ou vencida, ela sai da lista do backend e o selo some
           junto (a oferta anunciada vincula — CDC art. 30).
         */}
-        {promocao ? (
+        {promocao && !oferta ? (
           <p className="compra__promocao" data-promocao>
             <Raio />
             {promocao.etiqueta}
@@ -423,7 +454,8 @@ export function Compra({
 
       {mostrarDegraus && degraus.length > 1 ? (
         <Degraus
-          degraus={degraus}
+          degraus={oferta ? degrausDaOferta(degraus, oferta, base.porUnidade) : degraus}
+          semMelhor={Boolean(oferta)}
           escolhido={emVigor}
           tarja={tarjaDoDegrau}
           aoEscolher={(i) => {
@@ -566,9 +598,34 @@ export function Compra({
         ocupado={enviando}
         disponivel={disponivel}
         aoComprar={comprar}
+        oferta={oferta}
       />
     </>
   )
+}
+
+/**
+ * Os cartões de quantidade pra quem veio pelo link da oferta: em cada um, a
+ * unidade pelo menor entre o "por" e o preço dela naquela quantidade (o que
+ * o carrinho cobra), e a economia contra levar as mesmas unidades pelo
+ * preço de uma na loja. O de 1 unidade diz de onde vem o preço.
+ */
+function degrausDaOferta(
+  degraus: readonly DegrauDeQuantidade[],
+  oferta: OfertaNaPdp,
+  avulsoNaLoja: number
+): DegrauDeQuantidade[] {
+  return degraus.map((d) => {
+    const porUnidade = Math.min(oferta.por, d.porUnidade)
+    const preco = emCentavos(porUnidade * d.unidades)
+    return {
+      ...d,
+      porUnidade,
+      preco,
+      economia: emCentavos(Math.max(0, avulsoNaLoja * d.unidades - preco)),
+      nota: d.unidades === 1 ? "Preço do seu link" : null,
+    }
+  })
 }
 
 /**
@@ -864,11 +921,14 @@ function TarjaDeFrete({ texto }: { texto: string }) {
 
 function Degraus({
   degraus,
+  semMelhor = false,
   escolhido,
   tarja,
   aoEscolher,
 }: {
   degraus: readonly DegrauDeQuantidade[]
+  /** Sem a fita "Melhor preço": na oferta, a unidade custa o mesmo em todos. */
+  semMelhor?: boolean
   escolhido: number
   /** O selo de frete deste degrau, ou `null` quando ele não alcança o piso. */
   tarja: (preco: number) => string | null
@@ -910,7 +970,7 @@ function Degraus({
               className="compra__kit"
               data-esgotado={d.disponivel ? undefined : ""}
             >
-              {i === melhor && d.economia > 0 ? (
+              {!semMelhor && i === melhor && d.economia > 0 ? (
                 <span className="compra__kit-fita compra__kit-fita--campeao">
                   <Raio />
                   Melhor preço
@@ -1022,6 +1082,7 @@ function BarraFixa({
   disponivel,
   aoComprar,
   aviso = false,
+  oferta = null,
 }: {
   nome: string
   foto: string | null
@@ -1036,6 +1097,8 @@ function BarraFixa({
   aoComprar: () => void
   /** Esgotado: o botão vira "Avise-me" e leva pra caixa do aviso (`aoComprar`). */
   aviso?: boolean
+  /** A oferta oculta de quem veio pelo link: o prazo dela embaixo do preço. */
+  oferta?: OfertaNaPdp | null
 }) {
   const [mostra, setMostra] = useState(false)
   // À vista, a barra ocupa o pé da tela: a faixa de cookies sobe pra cima dela.
@@ -1106,6 +1169,7 @@ function BarraFixa({
         <span className="barra-compra__preco">
           {emReais(preco)} {riscado ? <s>{emReais(riscado)}</s> : null}
         </span>
+        {oferta ? <PrazoDaOferta terminaEm={oferta.terminaEm} /> : null}
       </span>
 
       {aviso ? (

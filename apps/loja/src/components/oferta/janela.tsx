@@ -3,24 +3,16 @@
 import Link from "next/link"
 import { useEffect, useState, type ReactNode } from "react"
 import { Raio } from "@/components/icones"
-import { quandoAcaba, situacaoAgora, type OfertaDaPagina } from "@/lib/ofertas"
+import {
+  cookieDaOferta,
+  quandoAcaba,
+  restanteAte,
+  situacaoAgora,
+  type OfertaDaPagina,
+} from "@/lib/ofertas"
 
 /** Na última hora o contador fica amarelo e pulsa, como o das ofertas relâmpago. */
 const URGENCIA_MS = 60 * 60 * 1000
-
-type Restante = { dias: number; horas: number; minutos: number; segundos: number; ms: number }
-
-function calcular(fim: number, agora: number): Restante {
-  const ms = Math.max(0, fim - agora)
-  const total = Math.floor(ms / 1000)
-  return {
-    ms,
-    dias: Math.floor(total / 86_400),
-    horas: Math.floor((total % 86_400) / 3600),
-    minutos: Math.floor((total % 3600) / 60),
-    segundos: total % 60,
-  }
-}
 
 const doisDigitos = (n: number) => String(n).padStart(2, "0")
 
@@ -39,12 +31,19 @@ const doisDigitos = (n: number) => String(n).padStart(2, "0")
  *
  * A aba escondida não conta (como o contador da home): ao voltar, a conta
  * sai certa do relógio.
+ *
+ * A MARCA NO NAVEGADOR (entrega 0240): no ar, a página deixa o cookie da
+ * oferta (`cookieDaOferta`, até o fim dela). É por ele que a página de cada
+ * produto da oferta mostra o preço dela pra quem veio pelo link.
  */
 export function JanelaDaOferta({
   oferta,
   children,
 }: {
-  oferta: Pick<OfertaDaPagina, "titulo" | "chamada" | "comecaEm" | "terminaEm" | "situacao">
+  oferta: Pick<
+    OfertaDaPagina,
+    "endereco" | "titulo" | "chamada" | "comecaEm" | "terminaEm" | "situacao"
+  >
   children: ReactNode
 }) {
   const [agora, setAgora] = useState<number | null>(null)
@@ -72,7 +71,19 @@ export function JanelaDaOferta({
 
   const situacao = agora === null ? oferta.situacao : situacaoAgora(oferta, agora)
   const fim = new Date(oferta.terminaEm).getTime()
-  const restante = agora === null ? null : calcular(fim, agora)
+  const restante = agora === null ? null : restanteAte(fim, agora)
+
+  // A marca no navegador, uma vez, com a oferta no ar (ver lá em cima).
+  const noAr = situacao === "no-ar"
+  useEffect(() => {
+    if (!noAr) return
+    document.cookie = cookieDaOferta(
+      oferta.endereco,
+      oferta.terminaEm,
+      Date.now(),
+      location.protocol === "https:"
+    )
+  }, [noAr, oferta.endereco, oferta.terminaEm])
   const urgente = restante !== null && restante.ms <= URGENCIA_MS
   const numero = (v: number | undefined) => (v === undefined ? "--" : doisDigitos(v))
 

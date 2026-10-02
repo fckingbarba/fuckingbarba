@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { FichaNaFoto } from "@/components/ficha/na-foto"
+import { FaixaDaOferta, ProvedorDaOfertaNaPdp } from "@/components/oferta/na-pdp"
 import { Compra } from "@/components/produto/compra"
 import { Galeria, type Foto, type ItemDaGaleria } from "@/components/produto/galeria"
 import { Migalhas, type Migalha } from "@/components/produto/migalhas"
@@ -43,6 +44,11 @@ import { site } from "@/lib/site"
  * preço empurra o botão pra fora da primeira tela. No desktop o grid devolve
  * o nome pro alto da coluna da direita. Quem navega por teclado ou leitor de
  * tela ouve na ordem do celular, que é a ordem que faz sentido lida.
+ *
+ * A OFERTA OCULTA (entrega 0240): quem veio pelo link de uma oferta com este
+ * produto vê a faixa dela no alto e o preço dela na foto, na compra e na
+ * barra fixa — no navegador, depois de abrir (`ProvedorDaOfertaNaPdp`). O
+ * HTML daqui é o de todo mundo, e o do Google.
  */
 
 export async function Dobra({ handle }: { handle: string }) {
@@ -179,7 +185,8 @@ export async function Dobra({ handle }: { handle: string }) {
   const categoriaDaTrilha = trilha.length > 2 ? trilha[1] : null
 
   return (
-    <>
+    <ProvedorDaOfertaNaPdp produtoId={produto.id} precos={precos ?? null}>
+      <FaixaDaOferta />
       <Migalhas trilha={trilha} />
 
       <section
@@ -252,7 +259,7 @@ export async function Dobra({ handle }: { handle: string }) {
           </div>
         </div>
       </section>
-    </>
+    </ProvedorDaOfertaNaPdp>
   )
 }
 

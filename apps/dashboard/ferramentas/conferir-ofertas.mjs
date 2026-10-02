@@ -241,6 +241,7 @@ try {
       titulo: p.title,
       variante: p.variants[0].id,
       hoje: centavos(p.variants[0].calculated_price.calculated_amount),
+      cheio: centavos(p.variants[0].calculated_price.original_amount),
     }))
   if (vendaveis.length < 3) throw new Error("preciso de 3 produtos com estoque e preço")
   const faixas = async (variante) =>
@@ -381,39 +382,6 @@ try {
     "o Pagar refaz a conta e a oferta que vale continua",
     JSON.stringify(c.linhas)
   )
-
-  titulo("Quem tem o link nunca paga mais que a vitrine")
-  {
-    // Uma promoção da vitrine abaixo do por de A (outra lista, como a de lançamento).
-    const abaixo = centavos(porA - 5)
-    const r = await adm("/admin/price-lists", {
-      metodo: "POST",
-      corpo: {
-        title: `Teste vitrine ${RODADA}`,
-        description: "conferir-ofertas",
-        status: "active",
-        prices: [{ amount: abaixo, currency_code: "brl", variant_id: A.variante }],
-      },
-    })
-    listaDeTeste = r.corpo.price_list?.id ?? null
-    ok(Boolean(listaDeTeste), "a promoção de teste nasce", JSON.stringify(r.corpo).slice(0, 200))
-    // A rodada do minuto acerta a lista da oferta: espera até ela passar.
-    let unitario = null
-    for (let i = 0; i < 40 && unitario !== abaixo; i++) {
-      await esperar(2500)
-      const cx = await carrinhoVazio()
-      await marcar(endereco, cx)
-      await colocar(cx, A.variante)
-      unitario = (await lerCarrinho(cx)).linha(A.variante)?.unitario ?? null
-    }
-    ok(
-      unitario === abaixo,
-      `com a vitrine em ${reais(abaixo)}, o carrinho da oferta também (a rodada do minuto)`,
-      String(unitario)
-    )
-    if (listaDeTeste) await adm(`/admin/price-lists/${listaDeTeste}`, { metodo: "DELETE" })
-    listaDeTeste = null
-  }
 
   titulo("Pausada, ligada, agendada e encerrada")
   ok((await mudar(O.id, "pausar", cookieOp.value)).status === 403, "a operação não pausa")
@@ -599,7 +567,31 @@ try {
   if (LOJA) {
     titulo("Na loja")
     const { pagina: p, contexto } = await novaAba()
-    await p.goto(`${LOJA}/oferta/${endereco}`, { waitUntil: "load" })
+    /**
+     * Abre até o preço do card de A ser o por: a página guardada de quando a
+     * vitrine estava abaixo dele (a parte de cima) pode vir uma vez antes da
+     * refeita — o aviso da rodada do minuto é "seconds".
+     */
+    const abrirAte = async (caminho, seletor, texto) => {
+      for (let i = 0; i < 12; i++) {
+        await p.goto(`${LOJA}${caminho}`, { waitUntil: "load" })
+        const achou = await p
+          .waitForFunction(
+            ([sel, t]) =>
+              [...document.querySelectorAll(sel)].some(
+                (e) => e.textContent?.replace(/\s+/g, " ").trim() === t
+              ),
+            [seletor, texto],
+            { timeout: 4000 }
+          )
+          .then(() => true)
+          .catch(() => false)
+        if (achou) return true
+        await esperar(1500)
+      }
+      return false
+    }
+    await abrirAte(`/oferta/${endereco}`, "article.produto .produto__por", reais(porA))
     // O streaming deixa uma cópia escondida até o React trocar: só a que aparece conta.
     await p.waitForSelector(".oferta__titulo:visible")
     ok(
@@ -629,8 +621,13 @@ try {
       "os dois cards, com o por e o selo da oferta"
     )
     ok(
-      (await cardA.locator(`a[href="/produtos/${A.handle}"]`).count()) === 0,
-      "o card da oferta não leva pra página do produto (lá o preço é o de sempre)"
+      (await cardA.locator(`a[href="/produtos/${A.handle}"]`).count()) === 3 &&
+        semEspaco(await cardA.locator(".produto__detalhes").textContent()) === "Ver detalhes →",
+      "o card leva pra página do produto: a foto, o nome e o Ver detalhes (0240)"
+    )
+    ok(
+      (await contexto.cookies()).find((k) => k.name === "fb_oferta")?.value === endereco,
+      "a página da oferta deixa a marca no navegador (o cookie fb_oferta)"
     )
     await hidratado(p, "article.produto .produto__comprar")
     await cardA.locator(".produto__comprar").click()
@@ -650,11 +647,97 @@ try {
       "o Comprar põe na sacola pelo por, com o carrinho marcado",
       `${parcial} ${JSON.stringify(daSacola)}`
     )
-    await p.goto(`${LOJA}/produtos/${A.handle}`, { waitUntil: "load" })
-    await p.waitForSelector(".compra__por")
+    /* ── a página do produto pra quem veio pelo link (0240, a opção A) ── */
+    const fA = await faixas(A.variante)
+    const deDuas = centavos(2 * Math.min(porA, fA[2] ?? porA))
+    await abrirAte(`/produtos/${A.handle}`, ".compra__por", reais(porA))
+    const faixa = p.locator("[data-faixa-oferta]")
+    const temFaixa = await faixa
+      .waitFor({ timeout: 20000 })
+      .then(() => true)
+      .catch(() => false)
+    await p
+      .waitForFunction(
+        (por) => document.querySelector(".compra__por")?.textContent?.replace(/\s+/g, " ") === por,
+        reais(porA),
+        { timeout: 15000 }
+      )
+      .catch(() => null)
+    const naLoja = semEspaco(
+      await p
+        .locator("[data-na-loja]")
+        .textContent()
+        .catch(() => "")
+    )
     ok(
-      semEspaco(await p.locator(".compra__por").first().textContent()) === reais(A.hoje),
-      "a página do produto mostra o preço de sempre"
+      temFaixa &&
+        /Oferta do seu link/.test(semEspaco(await faixa.textContent())) &&
+        /acaba em\s*\d/.test(semEspaco(await faixa.textContent())) &&
+        semEspaco(await p.locator(".compra__por").first().textContent()) === reais(porA) &&
+        naLoja === `Na loja: ${reais(A.hoje)} · no seu link: ${reais(porA)}`,
+      "na página do produto, quem veio pelo link: a faixa com o prazo, o por e a linha da loja",
+      `${semEspaco(await faixa.textContent().catch(() => ""))} | ${naLoja}`
+    )
+    const seloEsperado = `-${Math.round((1 - porA / (A.cheio > A.hoje ? A.cheio : A.hoje)) * 100)}%`
+    ok(
+      semEspaco(await p.locator(".galeria__selo--desconto").first().textContent()) === seloEsperado,
+      `o selo da foto com o desconto da oferta (${seloEsperado})`,
+      semEspaco(
+        await p
+          .locator(".galeria__selo--desconto")
+          .first()
+          .textContent()
+          .catch(() => "")
+      )
+    )
+    const kits = await p.locator(".compra__kit").allTextContents()
+    const fitas = await p.locator(".compra__kit-fita--campeao").count()
+    ok(
+      !kits.length ||
+        (semEspaco(kits[0]).includes(reais(porA)) &&
+          semEspaco(kits[1] ?? "").includes(reais(deDuas)) &&
+          fitas === 0),
+      "os cartões de quantidade pelo preço da oferta, sem a fita de melhor preço",
+      `${kits.map(semEspaco).join(" | ")} · 2 un. esperado ${reais(deDuas)} · fitas ${fitas}`
+    )
+    await hidratado(p, "button.compra__comprar")
+    await p.locator("button.compra__comprar").click()
+    await p
+      .waitForFunction(
+        (total) =>
+          !document.querySelector("#carrinho-gaveta .sacolinha__item[data-mexendo]") &&
+          document
+            .querySelector("#carrinho-gaveta .sacolinha__parcial")
+            ?.textContent?.replace(/\s+/g, " ") === total,
+        reais(deDuas),
+        { timeout: 30000 }
+      )
+      .catch(() => null)
+    const naSacola = cookieDoCarrinho ? await lerCarrinho(cookieDoCarrinho) : null
+    ok(
+      naSacola?.marca === O.id &&
+        naSacola?.linha(A.variante)?.quantidade === 2 &&
+        centavos(naSacola.linha(A.variante).unitario * 2) === deDuas,
+      "o Adicionar da página do produto soma na sacola pelo preço da oferta",
+      JSON.stringify(naSacola?.linhas)
+    )
+    await p.goto(`${LOJA}/produtos/${C.handle}`, { waitUntil: "load" })
+    await p.waitForSelector(".compra__por")
+    await esperar(1500)
+    ok(
+      (await p.locator("[data-faixa-oferta]").count()) === 0 &&
+        semEspaco(await p.locator(".compra__por").first().textContent()) === reais(C.hoje),
+      "o produto fora da oferta, mesmo com a marca: a página de sempre"
+    )
+    const semLink = await novaAba()
+    await semLink.pagina.goto(`${LOJA}/produtos/${A.handle}`, { waitUntil: "load" })
+    await semLink.pagina.waitForSelector(".compra__por")
+    await esperar(1500)
+    ok(
+      (await semLink.pagina.locator("[data-faixa-oferta]").count()) === 0 &&
+        semEspaco(await semLink.pagina.locator(".compra__por").first().textContent()) ===
+          reais(A.hoje),
+      "quem não veio pelo link vê a página do produto de sempre"
     )
     await p.goto(`${LOJA}/oferta/nao-existe-mesmo`, { waitUntil: "load" })
     ok(
@@ -676,6 +759,14 @@ try {
       acabou && (await p.locator("article.produto:visible").count()) === 0,
       "pausada: a página diz que acabou, sem os produtos"
     )
+    await p.goto(`${LOJA}/produtos/${A.handle}`, { waitUntil: "load" })
+    await p.waitForSelector(".compra__por")
+    await esperar(2000)
+    ok(
+      (await p.locator("[data-faixa-oferta]").count()) === 0 &&
+        semEspaco(await p.locator(".compra__por").first().textContent()) === reais(A.hoje),
+      "pausada: a página do produto volta a ser a de sempre, mesmo com a marca"
+    )
     await p.goto(`${LOJA}/checkout`, { waitUntil: "load" })
     const avisoDoCheckout = await p
       .locator("[data-oferta-acabou]")
@@ -685,7 +776,8 @@ try {
     ok(
       /acabou/.test(avisoDoCheckout) &&
         voltou?.marca === null &&
-        voltou?.linha(A.variante)?.unitario === A.hoje,
+        // 2 unidades na sacola (a do card e a da página do produto): a faixa de 2 da loja.
+        voltou?.linha(A.variante)?.unitario === centavos(fA[2] ?? A.hoje),
       "o checkout avisa que a oferta acabou, e o produto volta pro preço de sempre",
       `${semEspaco(avisoDoCheckout)} ${JSON.stringify(voltou)}`
     )
@@ -694,6 +786,68 @@ try {
     await cel.pagina.goto(`${LOJA}/oferta/${endereco}`, { waitUntil: "load" })
     await cel.pagina.waitForSelector("article.produto", { timeout: 30000 })
     ok(await semRolagemDeLado(cel.pagina), "no celular, a página da oferta sem rolagem de lado")
+    await cel.pagina.goto(`${LOJA}/produtos/${A.handle}`, { waitUntil: "load" })
+    await cel.pagina
+      .locator("[data-faixa-oferta]")
+      .waitFor({ timeout: 20000 })
+      .catch(() => null)
+    ok(
+      (await cel.pagina.locator("[data-faixa-oferta]").count()) === 1 &&
+        (await semRolagemDeLado(cel.pagina)),
+      "no celular, a página do produto com a faixa e sem rolagem de lado"
+    )
+  }
+
+  /*
+    Por último, porque mexe na vitrine: a promoção de teste abaixo do por, e a
+    volta dela, deixam a loja com páginas guardadas do preço de um minuto atrás
+    (o aviso da rodada é "seconds") — as checagens da loja, lá em cima, leriam
+    preço velho.
+  */
+  titulo("Quem tem o link nunca paga mais que a vitrine")
+  {
+    // Uma promoção da vitrine abaixo do por de A (outra lista, como a de lançamento).
+    const abaixo = centavos(porA - 5)
+    const r = await adm("/admin/price-lists", {
+      metodo: "POST",
+      corpo: {
+        title: `Teste vitrine ${RODADA}`,
+        description: "conferir-ofertas",
+        status: "active",
+        prices: [{ amount: abaixo, currency_code: "brl", variant_id: A.variante }],
+      },
+    })
+    listaDeTeste = r.corpo.price_list?.id ?? null
+    ok(Boolean(listaDeTeste), "a promoção de teste nasce", JSON.stringify(r.corpo).slice(0, 200))
+    // A rodada do minuto acerta a lista da oferta: espera até ela passar.
+    let unitario = null
+    for (let i = 0; i < 40 && unitario !== abaixo; i++) {
+      await esperar(2500)
+      const cx = await carrinhoVazio()
+      await marcar(endereco, cx)
+      await colocar(cx, A.variante)
+      unitario = (await lerCarrinho(cx)).linha(A.variante)?.unitario ?? null
+    }
+    ok(
+      unitario === abaixo,
+      `com a vitrine em ${reais(abaixo)}, o carrinho da oferta também (a rodada do minuto)`,
+      String(unitario)
+    )
+    if (listaDeTeste) await adm(`/admin/price-lists/${listaDeTeste}`, { metodo: "DELETE" })
+    listaDeTeste = null
+    // A vitrine de volta: a rodada do minuto devolve o por à lista da oferta (e avisa a loja).
+    for (let i = 0; i < 40 && unitario !== porA; i++) {
+      await esperar(2500)
+      const cx = await carrinhoVazio()
+      await marcar(endereco, cx)
+      await colocar(cx, A.variante)
+      unitario = (await lerCarrinho(cx)).linha(A.variante)?.unitario ?? null
+    }
+    ok(
+      unitario === porA,
+      "e com a vitrine de volta, o carrinho da oferta volta pro por",
+      String(unitario)
+    )
   }
 
   titulo("Console")

@@ -93,9 +93,16 @@
   flex: initial;
   width: auto;
 }
-/* Sem link pra página do produto (o preço lá é o de sempre): o nome é só texto. */
-.oferta__grade .produto__nome {
-  color: inherit;
+/* O "Ver detalhes" leva pra página do produto, com o preço da oferta (entrega 0240). */
+.produto__detalhes {
+  align-self: flex-start;
+  margin-top: 6px;
+  color: var(--color-menta-escura);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.produto__detalhes:hover {
+  text-decoration: underline;
 }
 .oferta__nota {
   max-width: 640px;

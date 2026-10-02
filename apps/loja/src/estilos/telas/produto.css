@@ -40,3 +40,5 @@
 @import "../pdp-esgotado.css";
 /* Escrito à mão: o selo do "Leve X, pague Y", embaixo do preço (entrega 0133). */
 @import "../pdp-promocao.css";
+/* Escrito à mão: a faixa e o prazo da oferta oculta, pra quem veio pelo link (entrega 0240). */
+@import "../pdp-oferta.css";

@@ -1,6 +1,6 @@
 "use server"
 
-import { adicionar, type Resultado } from "@/lib/acoes/carrinho"
+import { adicionar, adicionarVarios, type Resultado } from "@/lib/acoes/carrinho"
 import { criarCarrinhoCom, idDoCarrinho } from "@/lib/carrinho"
 import { cliente } from "@/lib/medusa"
 import { ehEnderecoDeOferta } from "@/lib/ofertas"
@@ -49,6 +49,25 @@ export async function adicionarDaOferta(
   varianteId: string,
   quantidade = 1
 ): Promise<Resultado> {
+  const recusa = await marcarASacola(endereco)
+  return recusa ?? adicionar(varianteId, quantidade)
+}
+
+/**
+ * Vários de uma vez, com a sacola marcada antes — o "Adicionar" da página do
+ * produto com o "Leve junto" marcado (entrega 0240). Os de fora da oferta
+ * entram pelo preço de sempre.
+ */
+export async function adicionarVariosDaOferta(
+  endereco: string,
+  variantes: { varianteId: string; quantidade?: number }[]
+): Promise<Resultado> {
+  const recusa = await marcarASacola(endereco)
+  return recusa ?? adicionarVarios(variantes)
+}
+
+/** A sacola de agora marcada com a oferta (ou uma nova, marcada); `null` deu certo. */
+async function marcarASacola(endereco: string): Promise<Resultado | null> {
   if (!ehEnderecoDeOferta(endereco) || !cliente())
     return { ok: false, erro: GENERICO, carrinho: null }
 
@@ -66,6 +85,5 @@ export async function adicionarDaOferta(
   }
   if (marca === "acabou") return { ok: false, erro: ACABOU, carrinho: null }
   if (marca !== "ok") return { ok: false, erro: GENERICO, carrinho: null }
-
-  return adicionar(varianteId, quantidade)
+  return null
 }
