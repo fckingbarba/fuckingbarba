@@ -14,7 +14,10 @@ import { useEffect, type RefObject } from "react"
  * (`bottom: calc(var(--pe-da-tela, 0px) + …)`, em `consentimento.tsx`).
  *
  * A altura é medida, não escrita: a barra da PDP cresce com o "leve junto", e
- * a do checkout some acima de 900 px (`display: none` mede zero).
+ * a do checkout some acima de 900 px (`display: none` mede zero). Conta junto
+ * o quanto a barra está acima do pé (o `bottom` dela): no celular a barra da
+ * PDP fica em cima da barra de baixo (entrega 0254), e o que vale é onde ela
+ * termina, não só a altura dela.
  *
  * Cada barra anota a sua num registro, e vale a maior. Uma conta só no <html>
  * não serve: o Next guarda telas visitadas escondidas no documento (o
@@ -35,7 +38,8 @@ export function usePeDaTela(barra: RefObject<HTMLElement | null>, ocupando: bool
     const el = barra.current
     if (!el || !ocupando) return
     const medir = () => {
-      alturas.set(el, el.offsetHeight)
+      const acima = parseFloat(getComputedStyle(el).bottom) || 0
+      alturas.set(el, el.offsetHeight + acima)
       aplicar()
     }
     medir()

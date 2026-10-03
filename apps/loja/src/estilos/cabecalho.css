@@ -42,8 +42,7 @@
 .cabecalho__grupo--dir {
   justify-content: flex-end;
 }
-/* A sacola do cabeçalho é a do computador: até 720 px ela está na barra de baixo
-   (menos quando a barra de baixo sai da frente, lá embaixo). */
+/* A sacola do cabeçalho é a do computador: até 720 px ela está na barra de baixo. */
 .cabecalho__sacola {
   display: contents;
 }
@@ -193,11 +192,6 @@
   .cabecalho__nav,
   .cabecalho__sacola {
     display: none;
-  }
-  /* Na PDP, com a barra de comprar no lugar da barra de baixo (`data-compra-fixa`,
-     ver `barra-de-baixo.css`), a sacola volta pro cabeçalho: sempre há uma à mão. */
-  html[data-compra-fixa] .cabecalho__sacola {
-    display: contents;
   }
 }
 @media (max-width: 400px) {
