@@ -1108,6 +1108,19 @@ function BarraFixa({
   const barra = useRef<HTMLDivElement>(null)
   usePeDaTela(barra, mostra)
 
+  // À vista, ela toma o lugar da barra de baixo do celular (`barra-de-baixo.css`):
+  // uma barra por vez no pé da tela. Num efeito, e não num `:has()` no CSS: a
+  // PDP que o Next guarda escondida (o `<Activity>`) desfaz o efeito, e o
+  // `:has()` seguiria casando com ela — a barra de baixo sumiria na home.
+  useEffect(() => {
+    if (!mostra) return
+    const raiz = document.documentElement
+    raiz.dataset.compraFixa = ""
+    return () => {
+      delete raiz.dataset.compraFixa
+    }
+  }, [mostra])
+
   useEffect(() => {
     const el = alvo.current
     if (!el) return

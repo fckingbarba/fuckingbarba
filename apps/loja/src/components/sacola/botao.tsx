@@ -6,7 +6,8 @@ import { useSacola } from "@/components/sacola/contexto"
 import { EM_BREVE } from "@/lib/site"
 
 /**
- * O BOTÃO DA SACOLA, no cabeçalho.
+ * O BOTÃO DA SACOLA, no cabeçalho do computador (no celular, a sacola mora na
+ * barra de baixo: `layout/barra-de-baixo.tsx`).
  *
  * O contador é o número de UNIDADES, não de linhas: quem pôs três frascos do
  * mesmo produto espera ver 3, não 1. É a conta que o Medusa devolve pronta.
@@ -39,13 +40,7 @@ export function BotaoDaSacola() {
       aria-haspopup="dialog"
       aria-expanded={aberta}
       aria-controls="carrinho-gaveta"
-      aria-label={
-        !sabe
-          ? "Sacola"
-          : carrinho.unidades === 1
-            ? "Sacola com 1 item"
-            : `Sacola com ${carrinho.unidades} ${carrinho.unidades === 0 ? "item" : "itens"}`
-      }
+      aria-label={nomeDaSacola(sabe, carrinho.unidades)}
     >
       <Sacola />
       {/*
@@ -59,4 +54,15 @@ export function BotaoDaSacola() {
       ) : null}
     </button>
   )
+}
+
+/**
+ * O nome do botão pra quem lê a tela, com o número por extenso. O mesmo no
+ * cabeçalho e na barra de baixo: os dois são "a sacola", e os conferidores
+ * acham um ou outro pelo nome, conforme a largura da tela.
+ */
+export function nomeDaSacola(sabe: boolean, unidades: number) {
+  if (!sabe) return "Sacola"
+  if (unidades === 1) return "Sacola com 1 item"
+  return `Sacola com ${unidades} ${unidades === 0 ? "item" : "itens"}`
 }

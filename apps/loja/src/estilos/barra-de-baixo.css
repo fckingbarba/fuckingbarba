@@ -1,0 +1,133 @@
+/*
+  A BARRA DE BAIXO DO CELULAR (entrega 0253) — `components/layout/barra-de-baixo.tsx`.
+
+  Preta como o cabeçalho, cinco abas com ícone e nome (o nome fica sempre:
+  ícone sozinho confunde). A aba da página acende em amarelo, com o traço em
+  cima; a sacola acende com a gaveta aberta.
+
+  Só até 720 px — a mesma largura em que a faixa de categorias do cabeçalho
+  some (`cabecalho.css`). No computador nada dela existe: nem a barra, nem o
+  vão do fim da página.
+
+  Quando ela sai da frente:
+  - na PDP, quando a barra de comprar aparece: uma coisa por vez no pé da
+    tela. Quem avisa é o `data-compra-fixa` no <html>, que a barra de comprar
+    põe num efeito (`produto/compra.tsx`) — e não um `:has(.barra-compra)`,
+    que seguiria casando com a PDP que o Next guarda escondida. Enquanto isso
+    a sacola volta pro cabeçalho (`cabecalho.css`): sempre há uma à mão;
+  - no checkout e no obrigado: lá ela some junto com o cabeçalho, nas regras
+    de `checkout-loja.css`.
+
+  Camadas: acima do aviso da reposição (55), embaixo do balão do pedido (58),
+  da barra de comprar (60), da gaveta da sacola (70) e dos pop-ups — e quem
+  mora no pé da tela sobe pra cima dela pelo `--pe-da-tela`.
+*/
+
+.barra-baixo,
+.barra-baixo__vao {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .barra-baixo__vao {
+    display: block;
+    flex-shrink: 0;
+    height: calc(57px + env(safe-area-inset-bottom));
+  }
+  .barra-baixo {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 56;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: #000000;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    font-family: var(--font-sans);
+    line-height: normal;
+    transition:
+      transform 0.26s var(--ease-suave),
+      visibility 0.26s;
+  }
+  html[data-compra-fixa] .barra-baixo {
+    transform: translateY(100%);
+    visibility: hidden;
+  }
+}
+
+.barra-baixo__aba {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  height: 56px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: #c3c8ce;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease;
+}
+.barra-baixo__aba svg {
+  width: 23px;
+  height: 23px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+.barra-baixo__aba[aria-current="page"],
+.barra-baixo__aba[aria-expanded="true"] {
+  color: var(--color-amarelo);
+}
+.barra-baixo__aba[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 26%;
+  right: 26%;
+  height: 3px;
+  background: var(--color-amarelo);
+}
+.barra-baixo__aba:focus-visible {
+  outline: 2px solid var(--color-amarelo);
+  outline-offset: -4px;
+}
+.barra-baixo__icone {
+  position: relative;
+  display: block;
+}
+.barra-baixo__contador {
+  position: absolute;
+  top: -6px;
+  right: -11px;
+  min-width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  background: var(--color-amarelo);
+  color: var(--color-tinta);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-baixo,
+  .barra-baixo__aba {
+    transition: none;
+  }
+}

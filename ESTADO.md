@@ -5638,6 +5638,33 @@ local, iguais sem a mudança), typecheck, lint e prettier.
 
 Depois do deploy — **nada pra configurar.** Pra ver: no celular, "Adicionar à sacola" num produto.
 
+**Barra de baixo no celular, sem o hambúrguer — pronta em 03/10 (entrega 0253).** Ele pediu pra
+tirar o menu hambúrguer e pôr uma barra embaixo no celular; das 5 opções do canvas "Barra de baixo
+no celular" escolheu a A.
+
+- **No celular (até 720 px), uma barra preta presa embaixo**: Início · Barba · Cabelo · Kits ·
+  Sacola, com ícone e nome. A aba da página acende em amarelo; a sacola mostra o número de itens
+  (sem o "0") e abre a gaveta. No topo ficam a busca, a logo e a conta.
+- **Na página do produto, a barra de comprar toma o lugar dela** (uma barra por vez no pé da tela),
+  e enquanto isso a sacola volta pro topo — sempre há uma à mão. Como o botão de comprar da página
+  fica abaixo da primeira tela no celular, quase sempre é a barra de comprar que aparece ali.
+- **No checkout e no obrigado ela não aparece.** A faixa de cookies, o balão do pedido, o aviso da
+  reposição e o aviso da conta sobem pra cima dela.
+- **No computador o hambúrguer também saiu**: o menu lateral só repetia as categorias que já estão na
+  faixa do cabeçalho. Fora isso, nada muda lá.
+
+Conferido: o checkout 244/244, a conta 211/211, o pagamento 227/227, o balão (com uma checagem
+nova: o balão em cima da barra), o frete 70/70, o avise-me, a 1ª compra, o catálogo, as
+configurações, o frete na PDP, os criadores, as avaliações, a esteira, a recomendação, o documento,
+o feed, os links e os endereços antigos, contra um Medusa local do zero; o da página do produto
+igual à main (as 7 falhas de texto das seções são do banco local). O Lighthouse do CI, como o CI,
+igual à main (home 2,41 s nas duas; acessibilidade 100). A home soma +0,36 KB de HTML e CSS e
++0,35 KB de JavaScript (comprimidos). Dois conferidores mudaram junto: o do checkout e o do frete
+clicam na sacola À VISTA (ver o AGENTS).
+
+Depois do deploy — **nada pra configurar.** Pra ver: no celular, a home, uma categoria e a página
+de um produto rolando até o fim.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

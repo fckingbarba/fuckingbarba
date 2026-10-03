@@ -1,17 +1,14 @@
 /*
-  Cabeçalho preto fixo, menu lateral e véu.
+  Cabeçalho preto fixo.
 
-  O menu mora fora da tela em translateX(-100%) e entra quando <html> ganha
-  a classe .menu-aberto (que também trava a rolagem da página). Quem põe e
-  tira essa classe é o componente cliente; a visibilidade e a transição ficam
-  todas aqui, no CSS — inclusive o estado fechado, que é o que o servidor
-  renderiza. Assim não há pulo entre o HTML que chega e a hidratação.
+  O menu lateral (o hambúrguer) saiu na entrega 0253: no celular as
+  categorias e a sacola estão na barra de baixo (`barra-de-baixo.css`), e no
+  computador as categorias já estão na faixa `.cabecalho__nav`.
 */
 
 /* Entrelinha padrão do navegador, como no protótipo: o preflight do
    Tailwind põe 1.5 na raiz e isso empurra tudo que não declara a sua. */
-.cabecalho,
-.menu {
+.cabecalho {
   line-height: normal;
 }
 .cabecalho,
@@ -44,6 +41,11 @@
 }
 .cabecalho__grupo--dir {
   justify-content: flex-end;
+}
+/* A sacola do cabeçalho é a do computador: até 720 px ela está na barra de baixo
+   (menos quando a barra de baixo sai da frente, lá embaixo). */
+.cabecalho__sacola {
+  display: contents;
 }
 .cabecalho__icone {
   width: 40px;
@@ -188,8 +190,14 @@
   border-bottom-color: var(--color-amarelo);
 }
 @media (max-width: 720px) {
-  .cabecalho__nav {
+  .cabecalho__nav,
+  .cabecalho__sacola {
     display: none;
+  }
+  /* Na PDP, com a barra de comprar no lugar da barra de baixo (`data-compra-fixa`,
+     ver `barra-de-baixo.css`), a sacola volta pro cabeçalho: sempre há uma à mão. */
+  html[data-compra-fixa] .cabecalho__sacola {
+    display: contents;
   }
 }
 @media (max-width: 400px) {
@@ -213,127 +221,6 @@
     width: 20px;
     height: 20px;
   }
-}
-.menu__veu {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(0, 0, 0, 0.6);
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.2s ease,
-    visibility 0.2s ease;
-}
-.menu {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  z-index: 61;
-  width: min(320px, 86vw);
-  background: #0a0a0a;
-  color: #ffffff;
-  font-family: var(--font-sans);
-  display: flex;
-  flex-direction: column;
-  transform: translateX(-100%);
-  transition: transform 0.22s ease;
-  overflow-y: auto;
-}
-.menu[inert] {
-  pointer-events: none;
-}
-.menu-aberto .menu__veu {
-  opacity: 1;
-  visibility: visible;
-}
-.menu-aberto .menu {
-  transform: translateX(0);
-}
-.menu-aberto {
-  overflow: hidden;
-}
-.menu__topo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 14px 16px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-}
-.menu__titulo {
-  margin: 0;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-amarelo);
-}
-.menu nav ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.menu nav a {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 16px 18px;
-  color: #ffffff;
-  text-decoration: none;
-  font-size: 0.95rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-.menu nav a:hover,
-.menu nav a:focus-visible {
-  background: rgba(79, 224, 185, 0.12);
-  color: #4fe0b9;
-}
-.menu nav a svg {
-  width: 13px;
-  height: 13px;
-  fill: var(--color-amarelo);
-  flex-shrink: 0;
-}
-/* Aqui a faixa amarela encosta no fim do menu; no protótipo ela para 15px
-   antes, porque o <p> mantinha a margem de baixo que o navegador dá de
-   graça e o preflight do Tailwind zera. A tira de preto sobrando embaixo
-   não era decisão de ninguém — era o padrão do <p> aparecendo. Fica grudada. */
-.menu__rodape {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px 18px;
-  background: var(--color-amarelo);
-  color: var(--color-tinta);
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  line-height: 1.25;
-  text-align: center;
-}
-.menu__rodape svg {
-  width: 17px;
-  height: 17px;
-  fill: var(--color-tinta);
-  flex-shrink: 0;
-}
-.menu__rodape-valor {
-  white-space: nowrap;
-}
-.menu__rodape-ast {
-  font-weight: 600;
-  opacity: 0.55;
 }
 .cabecalho__icone[data-sacola]::after {
   content: "";
@@ -408,9 +295,7 @@
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
 }
 @media (prefers-reduced-motion: reduce) {
-  .cabecalho *,
-  .menu,
-  .menu__veu {
+  .cabecalho * {
     transition: none !important;
     animation: none !important;
     scroll-behavior: auto !important;

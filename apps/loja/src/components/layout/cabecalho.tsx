@@ -3,72 +3,30 @@
 import Form from "next/form"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { Conta, Fechar, Hamburguer, Lupa, Raio } from "@/components/icones"
+import { Conta, Lupa } from "@/components/icones"
 import { LogoCurta } from "@/components/marca"
 import { BotaoDaSacola } from "@/components/sacola/botao"
-import { useSacola } from "@/components/sacola/contexto"
-import { useFrete } from "@/components/configuracoes/contexto"
-import { frasesDoFrete } from "@/lib/configuracoes"
 import { navegacao, site } from "@/lib/site"
 
 /**
- * Cabeçalho preto fixo + menu lateral.
+ * Cabeçalho preto fixo: busca, logo, conta e sacola.
  *
- * É componente de cliente porque três coisas aqui só existem no navegador: o
- * menu que abre, a busca que aparece e a sombra que surge quando a página sai
- * do topo. O desenho todo, inclusive o estado fechado, está em
- * `src/estilos/cabecalho.css` — o HTML que o servidor manda já vem com o menu
- * no lugar certo (fora da tela), então não há pulo quando a página hidrata.
+ * SEM MENU HAMBÚRGUER desde a entrega 0253. No celular as categorias e a
+ * sacola moram na barra de baixo (`barra-de-baixo.tsx`), a um toque; no
+ * computador as categorias já estavam à vista na faixa daqui, e o menu
+ * lateral só repetia o que está na tela. Por isso a sacola deste cabeçalho
+ * some até 720 px (`cabecalho.css`): a da barra é a mesma — e volta na PDP
+ * quando a barra de comprar toma o lugar da barra de baixo.
  *
- * Acessibilidade do menu, que é onde isso costuma quebrar:
- * - `inert` enquanto fechado: nem o Tab nem o leitor de tela entram nele;
- * - ao abrir, o foco vai pro botão de fechar; ao fechar, volta pro hambúrguer;
- * - Tab circula preso dentro do menu, senão o foco vaza pra página atrás, que
- *   a pessoa nem está vendo;
- * - Esc fecha, e clicar no véu também.
+ * É componente de cliente porque duas coisas aqui só existem no navegador: a
+ * busca que aparece e a sombra que surge quando a página sai do topo.
  */
 export function Cabecalho() {
-  const frases = frasesDoFrete(useFrete())
-  const sacola = useSacola()
-
-  const [menuAberto, setMenuAberto] = useState(false)
   const [buscaAberta, setBuscaAberta] = useState(false)
   const [rolado, setRolado] = useState(false)
 
-  const abrirRef = useRef<HTMLButtonElement>(null)
-  const fecharRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLElement>(null)
   const buscaRef = useRef<HTMLInputElement>(null)
   const sentinelaRef = useRef<HTMLDivElement>(null)
-  const montou = useRef(false)
-
-  // A classe mora no <html> porque ela também trava a rolagem da página
-  // (`.menu-aberto { overflow: hidden }`), e isso não dá pra fazer de dentro.
-  useEffect(() => {
-    const raiz = document.documentElement
-    raiz.classList.toggle("menu-aberto", menuAberto)
-    return () => raiz.classList.remove("menu-aberto")
-  }, [menuAberto])
-
-  // Foco entra e volta. O `montou` evita roubar o foco na primeira pintura:
-  // sem ele, abrir a página já jogaria o cursor no hambúrguer.
-  useEffect(() => {
-    if (!montou.current) {
-      montou.current = true
-      return
-    }
-    if (menuAberto) fecharRef.current?.focus()
-    else abrirRef.current?.focus()
-  }, [menuAberto])
-
-  useEffect(() => {
-    if (!menuAberto) return
-    function aoTeclar(evento: KeyboardEvent) {
-      if (evento.key === "Escape") setMenuAberto(false)
-    }
-    document.addEventListener("keydown", aoTeclar)
-    return () => document.removeEventListener("keydown", aoTeclar)
-  }, [menuAberto])
 
   useEffect(() => {
     if (buscaAberta) buscaRef.current?.focus()
@@ -84,23 +42,6 @@ export function Cabecalho() {
     return () => vigia.disconnect()
   }, [])
 
-  function prendeTab(evento: React.KeyboardEvent<HTMLElement>) {
-    if (evento.key !== "Tab" || !menuRef.current) return
-    const focaveis = menuRef.current.querySelectorAll<HTMLElement>(
-      "a[href], button:not([disabled])"
-    )
-    if (!focaveis.length) return
-    const primeiro = focaveis[0]
-    const ultimo = focaveis[focaveis.length - 1]
-    if (evento.shiftKey && document.activeElement === primeiro) {
-      evento.preventDefault()
-      ultimo.focus()
-    } else if (!evento.shiftKey && document.activeElement === ultimo) {
-      evento.preventDefault()
-      primeiro.focus()
-    }
-  }
-
   return (
     <>
       <div
@@ -112,17 +53,6 @@ export function Cabecalho() {
       <header className={`cabecalho${rolado ? " e-rolado" : ""}`}>
         <div className="cabecalho__barra">
           <div className="cabecalho__grupo">
-            <button
-              type="button"
-              ref={abrirRef}
-              className="cabecalho__icone"
-              onClick={() => setMenuAberto(true)}
-              aria-expanded={menuAberto}
-              aria-controls="menu-lateral"
-              aria-label="Abrir menu"
-            >
-              <Hamburguer />
-            </button>
             <button
               type="button"
               className="cabecalho__icone"
@@ -145,7 +75,9 @@ export function Cabecalho() {
             <Link className="cabecalho__icone" href="/conta" aria-label="Minha conta">
               <Conta />
             </Link>
-            <BotaoDaSacola />
+            <span className="cabecalho__sacola">
+              <BotaoDaSacola />
+            </span>
           </div>
         </div>
 
@@ -179,72 +111,6 @@ export function Cabecalho() {
           </ul>
         </nav>
       </header>
-
-      {/* Véu: some por `visibility` no CSS, então não recebe clique fechado. */}
-      <div className="menu__veu" aria-hidden="true" onClick={() => setMenuAberto(false)} />
-
-      <aside
-        ref={menuRef}
-        className="menu"
-        id="menu-lateral"
-        aria-label="Menu principal"
-        inert={!menuAberto}
-        onKeyDown={prendeTab}
-      >
-        <div className="menu__topo">
-          <p className="menu__titulo">Navegue</p>
-          <button
-            type="button"
-            ref={fecharRef}
-            className="cabecalho__icone"
-            onClick={() => setMenuAberto(false)}
-            aria-label="Fechar menu"
-          >
-            <Fechar />
-          </button>
-        </div>
-
-        <nav aria-label="Categorias">
-          <ul>
-            {navegacao.menu.map((item) => (
-              <li key={item.texto}>
-                <Link
-                  href={item.href}
-                  onClick={(evento) => {
-                    setMenuAberto(false)
-                    // O "Carrinho" abre a gaveta no lugar de navegar. O foco
-                    // termina nela: a gaveta vem depois do cabeçalho na
-                    // árvore, e o efeito dela roda depois do que devolve o
-                    // foco pro hambúrguer.
-                    if ("abreSacola" in item && sacola) {
-                      evento.preventDefault()
-                      sacola.abrir()
-                    }
-                  }}
-                >
-                  {item.texto}
-                  <Raio />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        {/* Sem política de frete, o pé do menu lateral simplesmente não
-            existe — em vez de virar "Frete grátis a partir de R$ 0,00". */}
-        {frases ? (
-          <p className="menu__rodape">
-            <Raio />
-            <span>
-              {frases.selo}{" "}
-              <span className="menu__rodape-valor">
-                {frases.condicao.toLowerCase()}
-                <span className="menu__rodape-ast">*</span>
-              </span>
-            </span>
-          </p>
-        ) : null}
-      </aside>
     </>
   )
 }

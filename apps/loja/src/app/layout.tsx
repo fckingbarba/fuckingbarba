@@ -4,6 +4,7 @@ import { Suspense } from "react"
 import { Tags } from "@/components/analytics/tags"
 import { SimboloEstrela } from "@/components/estrelas"
 import { Anuncio } from "@/components/layout/anuncio"
+import { BarraDeBaixo } from "@/components/layout/barra-de-baixo"
 import { Cabecalho } from "@/components/layout/cabecalho"
 import { Rodape } from "@/components/layout/rodape"
 import { SemZoomNoCampo } from "@/components/layout/sem-zoom-no-campo"
@@ -129,6 +130,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <Cabecalho />
               {children}
               <Rodape />
+              {/* A barra de baixo do celular (0253), no lugar do hambúrguer. */}
+              <BarraDeBaixo />
               <Gaveta vitrine={vitrine} modelo={modelo} />
               {/* O balão de quem acabou de comprar (0203): dentro da sacola, pro
                   "Refazer" abrir a gaveta; no Suspense, pelo `usePathname`. */}
