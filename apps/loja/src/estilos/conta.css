@@ -1404,7 +1404,8 @@ html:not([data-hidratado]) body:has(.conta) {
 .conta-aviso {
   position: fixed;
   left: 50%;
-  bottom: 20px;
+  /* Em cima da barra de baixo do celular. */
+  bottom: calc(20px + var(--pe-da-tela, 0px));
   z-index: 90;
   display: flex;
   align-items: center;

@@ -2384,10 +2384,19 @@ async function abaVigiada() {
   )
   return { ctx, pag }
 }
-/** A PDP aberta, com a sacola já lida (o número do cabeçalho só aparece depois dela). */
+/**
+ * A PDP aberta, com a sacola já lida: só depois dela o botão da sacola diz o
+ * número ("Sacola com 0 item"). O botão à vista: o do cabeçalho no computador,
+ * o da barra de baixo no celular (0253) — que não mostra o "0", e por isso a
+ * espera é pelo nome, e não pelo `.cabecalho__contador`.
+ */
 async function naPdp(pag, handle = "oleo-para-barba") {
   await pag.goto(`${LOJA}/produtos/${handle}`, { waitUntil: "domcontentloaded" })
-  await pag.locator(".cabecalho__contador").first().waitFor({ timeout: 25000 })
+  await pag
+    .locator('button[aria-controls="carrinho-gaveta"][aria-label^="Sacola com"]')
+    .filter({ visible: true })
+    .first()
+    .waitFor({ timeout: 25000 })
 }
 const naoCarregou = async (pag) =>
   /não carregou/i.test(
@@ -3555,7 +3564,12 @@ if (EMAIL_ADMIN && SENHA_ADMIN) {
 
     // Tirar pela sacola.
     await naPdp(pag, "oleo-para-barba")
-    await pag.locator('button[aria-controls="carrinho-gaveta"]').first().click()
+    // No celular, a sacola à vista é a da barra de baixo (0253): a do cabeçalho some.
+    await pag
+      .locator('button[aria-controls="carrinho-gaveta"]')
+      .filter({ visible: true })
+      .first()
+      .click()
     await gaveta.locator(".sacolinha__cupom-tira").click()
     await gaveta.locator(".sacolinha__cupom-abre").waitFor({ timeout: 20000 })
     ok(!(await cupons()).includes(CS), "o Tirar da sacola tira do carrinho")

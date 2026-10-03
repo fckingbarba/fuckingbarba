@@ -175,16 +175,19 @@
   Em regras separadas, e não numa lista: navegador sem `:has()` descarta a
   regra INTEIRA onde ele aparece, e a da marca tem que sobreviver sozinha.
 */
-html[data-tela~="checkout"] :is(.anuncio, .cabecalho, .rodape),
-html[data-tela~="obrigado"] :is(.anuncio, .cabecalho, .rodape__news, .rodape__colunas) {
+html[data-tela~="checkout"] :is(.anuncio, .cabecalho, .rodape, .barra-baixo, .barra-baixo__vao),
+html[data-tela~="obrigado"]
+  :is(.anuncio, .cabecalho, .rodape__news, .rodape__colunas, .barra-baixo, .barra-baixo__vao) {
   display: none;
 }
-html:not([data-hidratado]) body:has(.pagina) :is(.anuncio, .cabecalho, .rodape) {
+html:not([data-hidratado])
+  body:has(.pagina)
+  :is(.anuncio, .cabecalho, .rodape, .barra-baixo, .barra-baixo__vao) {
   display: none;
 }
 html:not([data-hidratado])
   body:has(.obrigado)
-  :is(.anuncio, .cabecalho, .rodape__news, .rodape__colunas) {
+  :is(.anuncio, .cabecalho, .rodape__news, .rodape__colunas, .barra-baixo, .barra-baixo__vao) {
   display: none;
 }
 

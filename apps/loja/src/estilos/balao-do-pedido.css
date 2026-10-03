@@ -12,7 +12,9 @@
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(14px + env(safe-area-inset-bottom));
+  /* Em cima da barra de baixo do celular (que já conta a faixa do gesto do
+     iPhone na altura dela); sem barra, só acima da faixa do gesto. */
+  bottom: calc(14px + var(--pe-da-tela, env(safe-area-inset-bottom)));
   z-index: 58;
   max-width: 400px;
   height: 80px;

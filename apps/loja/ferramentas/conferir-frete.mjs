@@ -994,7 +994,11 @@ try {
 
       /* Recarregar: o que ficou no carrinho volta pra tela sozinho. */
       await pagina.reload({ waitUntil: "domcontentloaded" })
-      await pagina.locator("button[aria-controls='carrinho-gaveta']").click()
+      // A sacola à vista: a da barra de baixo do celular (0253) também está no HTML.
+      await pagina
+        .locator("button[aria-controls='carrinho-gaveta']")
+        .filter({ visible: true })
+        .click()
       const voltou = await bloco
         .locator(".sacolinha__cep-ok b")
         .waitFor({ timeout: 20000 })

@@ -9,7 +9,8 @@
 .rp-aviso {
   position: fixed;
   left: 16px;
-  bottom: 16px;
+  /* Em cima da barra de baixo do celular. */
+  bottom: calc(16px + var(--pe-da-tela, 0px));
   z-index: 55;
   width: min(400px, calc(100% - 32px));
   display: grid;
@@ -134,7 +135,7 @@
   .rp-aviso {
     left: 12px;
     right: 12px;
-    bottom: 12px;
+    bottom: calc(12px + var(--pe-da-tela, 0px));
     width: auto;
   }
 }

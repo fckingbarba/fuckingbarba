@@ -31,10 +31,44 @@ export function Raio(props: Props) {
   )
 }
 
-export function Hamburguer(props: Props) {
+/** Início — a casa da barra de baixo do celular. */
+export function Casa(props: Props) {
   return (
     <Icone {...props}>
-      <path d="M3 5h19l-2.6 2.6H3zM3 10.7h19l-2.6 2.6H3zM3 16.4h19l-2.6 2.6H3z" />
+      <path d="M12 2.6 2.4 11.2v2.4h2.2v6.8l1.6 1.6h4.2v-6h3.2v6h4.2l1.6-1.6v-6.8h2.2v-2.4z" />
+    </Icone>
+  )
+}
+
+/** A categoria Barba, na barra de baixo: a barba com a boca aberta no meio. */
+export function Barba(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M3.4 3.6h3v5.6l2.4 2.4h6.4l2.4-2.4V3.6h3v9l-3.4 5.6-3 2.8h-3.4l-3-2.8-3.4-5.6zM9.6 14.2h4.8l-.9 1.5h-3z"
+      />
+    </Icone>
+  )
+}
+
+/** A categoria Cabelo, na barra de baixo: o pente. */
+export function Pente(props: Props) {
+  return (
+    <Icone {...props}>
+      <path d="M2.6 5.2h18.8l-1.4 1.4v3.2H2.6zM3.4 10.6h1.8v7.6l-.9.9-.9-.9zM6.3 10.6h1.8v7.6l-.9.9-.9-.9zM9.2 10.6H11v7.6l-.9.9-.9-.9zM12.1 10.6h1.8v7.6l-.9.9-.9-.9zM15 10.6h1.8v7.6l-.9.9-.9-.9zM17.9 10.6h1.8v7.6l-.9.9-.9-.9z" />
+    </Icone>
+  )
+}
+
+/** A categoria Kits, na barra de baixo: a caixa com a tampa. */
+export function Caixa(props: Props) {
+  return (
+    <Icone {...props}>
+      <path
+        fillRule="evenodd"
+        d="M2.6 3.4h18.8v4.8H2.6zM3.8 9.6h16.4v9.6l-1.8 1.8H5.6l-1.8-1.8zM9 11.6h6v2H9z"
+      />
     </Icone>
   )
 }

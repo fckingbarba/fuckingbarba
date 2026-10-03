@@ -76,6 +76,13 @@ abre páginas da loja no navegador: faça o mesmo (o `conferir-feed` não precis
 lê o XML numa página em branco). Quem confere a faixa são o `conferir-integracoes` e o
 `conferir-crm` do painel.
 
+**A sacola tem dois botões desde a 0253** — o do cabeçalho (computador) e o da barra de baixo
+(celular, até 720 px; na PDP com a barra de comprar à vista, o do cabeçalho volta e o da barra sai).
+Os dois estão sempre no HTML, com o mesmo nome ("Sacola com N itens"): `getByRole` acha só o que
+está à vista, mas um seletor CSS acha os dois — use `.filter({ visible: true })`, não o `.first()`
+(que pega o do cabeçalho, escondido no celular), nem o `.cabecalho__contador` pra saber se a sacola
+já foi lida (a barra não mostra o "0"; espere o nome começar com "Sacola com").
+
 ```bash
 # frete e checkout sobem uma Frenet falsa (4310) e um Pagar.me falso (4320); os de pagamento,
 # conta e envio sobem os dois e um Resend falso (4330), de onde leem os e-mails. O backend
