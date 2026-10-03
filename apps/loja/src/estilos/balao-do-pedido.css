@@ -32,7 +32,8 @@
 
 /* A barra de compra da página de produto apareceu: o balão sobe por cima dela. */
 body:has(.barra-compra.e-visivel) .bp-balao {
-  bottom: calc(92px + env(safe-area-inset-bottom));
+  /* Em cima dela (e, no celular, da barra de baixo, que fica embaixo dela). */
+  bottom: calc(14px + var(--pe-da-tela, 78px));
 }
 
 @media (min-width: 768px) {

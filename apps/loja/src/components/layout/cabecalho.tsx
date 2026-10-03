@@ -15,8 +15,7 @@ import { navegacao, site } from "@/lib/site"
  * sacola moram na barra de baixo (`barra-de-baixo.tsx`), a um toque; no
  * computador as categorias já estavam à vista na faixa daqui, e o menu
  * lateral só repetia o que está na tela. Por isso a sacola deste cabeçalho
- * some até 720 px (`cabecalho.css`): a da barra é a mesma — e volta na PDP
- * quando a barra de comprar toma o lugar da barra de baixo.
+ * some até 720 px (`cabecalho.css`): a da barra é a mesma.
  *
  * É componente de cliente porque duas coisas aqui só existem no navegador: a
  * busca que aparece e a sombra que surge quando a página sai do topo.

@@ -5665,6 +5665,28 @@ clicam na sacola À VISTA (ver o AGENTS).
 Depois do deploy — **nada pra configurar.** Pra ver: no celular, a home, uma categoria e a página
 de um produto rolando até o fim.
 
+**A barra de baixo fixa também na página do produto — pronta em 03/10 (entrega 0254).** Com a
+0253 no ar, ele pediu que a barra ficasse fixa no celular. Na 0253 ela saía da frente quando a barra
+de comprar aparecia, e no celular isso era quase a PDP inteira (o botão de comprar da página fica
+abaixo da primeira tela).
+
+- **Agora a barra de baixo fica em toda página**, menos no checkout e no obrigado. Na PDP, a barra
+  de comprar mora **em cima** dela e aparece por trás dela.
+- A sacola fica sempre na barra (a volta da sacola pro topo saiu junto).
+- A faixa de cookies, o balão do pedido e os avisos sobem pra cima das duas: o `--pe-da-tela`
+  passou a contar onde a barra termina (altura + o quanto ela está acima do pé), não só a altura.
+- **O fim da página não fica mais embaixo da barra de comprar**: o vão do fim mede o que está preso
+  no pé. Até aqui os últimos ~67 px do rodapé da PDP ficavam atrás dela.
+- No iPhone as duas juntas ocupam ~160 px do pé da PDP. Foi a escolha dele.
+
+Conferido: checkout 244/244, conta 211/211, frete 70/70, balão (a checagem nova agora espera a
+entrada dele, que sobe 24 px), avise-me, 1ª compra, frete na PDP, catálogo e links, contra o Medusa
+local; o da página do produto igual à main (as 7 falhas de texto do banco local). Lighthouse como o
+CI: igual à main (home 2,41 s, PDP 2,26 s, CLS da PDP 0,008 como na main).
+
+Depois do deploy — **nada pra configurar.** Pra ver: no celular, a página de um produto rolando até o
+fim.
+
 ## Como seguir no Claude Code
 
 - O operacional está no AGENTS.md: comandos, os conferidores da loja e do painel (contra o Medusa

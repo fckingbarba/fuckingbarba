@@ -42,3 +42,15 @@
 @import "../pdp-promocao.css";
 /* Escrito à mão: a faixa e o prazo da oferta oculta, pra quem veio pelo link (entrega 0240). */
 @import "../pdp-oferta.css";
+
+/*
+  A BARRA DE COMPRAR EM CIMA DA BARRA DE BAIXO DO CELULAR (entrega 0254). Até
+  720 px a barra de baixo é fixa em toda página (`barra-de-baixo.css`), e a de
+  comprar — que o `pdp.css`, gerado, prende no pé da tela — sobe a altura dela.
+  A de baixo fica na frente (61 contra 60): a de comprar aparece por trás dela.
+*/
+@media (max-width: 720px) {
+  .barra-compra {
+    bottom: var(--altura-da-barra-de-baixo);
+  }
+}

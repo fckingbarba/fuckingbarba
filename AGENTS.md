@@ -77,7 +77,7 @@ lê o XML numa página em branco). Quem confere a faixa são o `conferir-integra
 `conferir-crm` do painel.
 
 **A sacola tem dois botões desde a 0253** — o do cabeçalho (computador) e o da barra de baixo
-(celular, até 720 px; na PDP com a barra de comprar à vista, o do cabeçalho volta e o da barra sai).
+(celular, até 720 px; a barra é fixa em toda página desde a 0254, e na PDP a de comprar fica em cima dela).
 Os dois estão sempre no HTML, com o mesmo nome ("Sacola com N itens"): `getByRole` acha só o que
 está à vista, mas um seletor CSS acha os dois — use `.filter({ visible: true })`, não o `.first()`
 (que pega o do cabeçalho, escondido no celular), nem o `.cabecalho__contador` pra saber se a sacola

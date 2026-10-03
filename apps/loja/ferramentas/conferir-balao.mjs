@@ -284,11 +284,14 @@ try {
         "no celular, o balão fica embaixo, inteiro na tela",
         JSON.stringify(caixa)
       )
+      // Medido depois da entrada: o balão sobe 24 px ao aparecer (`bp-sobe`).
+      await balao(pagina).evaluate((b) => Promise.all(b.getAnimations().map((a) => a.finished)))
+      const parado = await balao(pagina).boundingBox()
       const barraDeBaixo = await pagina.locator("nav.barra-baixo").boundingBox()
       ok(
-        Boolean(caixa && barraDeBaixo) && caixa.y + caixa.height <= barraDeBaixo.y,
+        Boolean(parado && barraDeBaixo) && parado.y + parado.height <= barraDeBaixo.y,
         "e em cima da barra de baixo, sem tapar as abas (0253)",
-        JSON.stringify({ balao: caixa, barra: barraDeBaixo })
+        JSON.stringify({ balao: parado, barra: barraDeBaixo })
       )
     }
 

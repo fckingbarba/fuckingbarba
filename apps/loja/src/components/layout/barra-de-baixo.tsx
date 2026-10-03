@@ -33,11 +33,10 @@ function abaDo(caminho: string | null): "inicio" | HandleCategoria | null {
  * cliente chega pensando "quero algo pra barba", não "quero ver produtos", e
  * com três categorias cabe tudo na barra. A busca e a conta ficam no topo.
  *
- * Só no celular (até 720 px, onde a faixa de categorias do cabeçalho some): o
- * desenho e as regras de quando ela sai da frente estão em
- * `src/estilos/barra-de-baixo.css` — no checkout e no obrigado ela não existe,
- * e na PDP a barra de comprar toma o lugar dela (`data-compra-fixa`, em
- * `produto/compra.tsx`).
+ * Só no celular (até 720 px, onde a faixa de categorias do cabeçalho some), e
+ * fixa em toda página — na PDP a barra de comprar fica em cima dela (0254). O desenho
+ * está em `src/estilos/barra-de-baixo.css`; no checkout e no obrigado ela não
+ * existe.
  *
  * A ABA ACESA vem do endereço, que chega por um pedaço à parte (`Endereco`,
  * abaixo) e só depois de o React assumir: o HTML sai com a barra apagada, e a
@@ -58,8 +57,9 @@ export function BarraDeBaixo() {
 
   return (
     <>
-      {/* O vão no fim da página, da altura da barra: sem ele, o fim do rodapé
-          ficaria pra sempre embaixo dela. */}
+      {/* O vão no fim da página, da altura do que está preso no pé (ela, ou ela e
+          a barra de comprar da PDP): sem ele, o fim do rodapé ficaria pra sempre
+          embaixo delas. */}
       <div className="barra-baixo__vao" aria-hidden="true" />
       <Suspense fallback={null}>
         <Endereco aoMudar={setCaminho} />
